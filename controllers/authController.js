@@ -37,16 +37,12 @@ const Login = async (req, res) => {
     const empresa = await Empresa.findByPk(empresa_id);
     const ict = await Ict.findByPk(ict_id);
     
-    // Gera o token JWT, incluindo empresa_id ou ict_id
+    // Dados mutaveis ficam fora do JWT; o middleware consulta os vinculos atuais.
     const token = jwt.sign(
       {
         id: usuario.id,
         email: usuario.email,
         tipo: usuario.tipo,
-        empresa_id,
-        empresa,
-        ict_id,
-        ict
       },
       process.env.JWT_SECRET,
       { expiresIn: "24h" } // Opcional: define um tempo de expiração para o token
@@ -92,32 +88,12 @@ const Logout = async (req, res) => {
 
 // Verificar Token
 const VerificarToken = async (req, res) => {
-  const token = req.cookies.token;
-
-  if (!token) {
-    return res
-      .status(401)
-      .json({ message: "Acesso negado, token não fornecido." });
-  }
-
-  try {
-    // Decodifica o token e verifica se é válido
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    const empresa = await Empresa.findByPk(decoded.empresa_id);
-    const ict = await Ict.findByPk(decoded.ict_id);
-
-    // Retorna as informações do usuário e o status do token
-    res.status(200).json({
-      message: "Token válido.",
-      usuario: { ...decoded, empresa, ict },
-    });
-  } catch (err) {
-    res.status(401).json({ message: "Token inválido ou expirado." });
-  }
+  // /auth usa a mesma leitura atualizada do banco que /me.
+  res.status(200).json({ message: "Token válido.", usuario: req.user });
 };
 
 const GetUser = async (req, res) => {
+  // req.user foi carregado do banco pelo middleware, incluindo os relacionamentos.
   res.status(200).json({ usuario: req.user });
 };
 
