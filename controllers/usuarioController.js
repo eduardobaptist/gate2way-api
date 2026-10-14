@@ -2,6 +2,7 @@ const Usuario = require('../models').Usuario;
 const Responsavel = require('../models').Responsavel;
 const Empresa = require('../models').Empresa;
 const Ict = require('../models').Ict;
+const sequelize = require('../models').sequelize;
 const enviarEmail = require('../services/emailService');
 const { Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
@@ -73,22 +74,26 @@ const ResponsavelCadastrarUsuario = async (req, res) => {
     }
 
     const senhaHash = await bcrypt.hash(senha, 10);
-    const novoUsuario = await Usuario.create({
-      nome,
-      email,
-      senha: senhaHash,
-      tipo: usuarioLogado.tipo, // O tipo é forçado a ser igual ao do responsável
-      primeiro_acesso: true,
-      endereco,
-      telefone,
-    });
+    // O cadastro feito por responsavel tambem precisa desfazer gravacoes parciais.
+    const novoUsuario = await sequelize.transaction(async (transaction) => {
+      const usuario = await Usuario.create({
+        nome,
+        email,
+        senha: senhaHash,
+        tipo: usuarioLogado.tipo, // O tipo é forçado a ser igual ao do responsável
+        primeiro_acesso: true,
+        endereco,
+        telefone,
+      }, { transaction });
 
-    // 6. Criar o registro de "Responsavel" associado ao novo usuário
-    await Responsavel.create({
-      usuario_id: novoUsuario.id,
-      cargo,
-      empresa_id,
-      ict_id
+      await Responsavel.create({
+        usuario_id: usuario.id,
+        cargo,
+        empresa_id,
+        ict_id
+      }, { transaction });
+
+      return usuario;
     });
 
     await enviarEmail(
@@ -118,37 +123,37 @@ const CadastrarUsuario = async (req, res) => {
   }
 
   try {
-    const senhaHash = await bcrypt.hash(senha, 10);
-
-    // Cria o novo usuário
-    const novoUsuario = await Usuario.create({
-      nome,
-      email,
-      senha: senhaHash,
-      tipo,
-      primeiro_acesso: true,
-      endereco,
-      telefone,
-    });
-
-    // Determina a associação com empresa ou ICT
-    let responsavelEmpresaId = null;
-    let responsavelIctId = null;
-
-    if (tipo === 'empresa' && empresa_id) {
-      responsavelEmpresaId = empresa_id;
-    } else if (tipo === 'ict' && ict_id) {
-      responsavelIctId = ict_id;
-    } else if (tipo === 'empresa' || tipo === 'ict') {
-      return res.status(400).json({ message: 'É necessário informar empresa_id ou ict_id para o tipo de usuário especificado.' });
+    // O middleware valida os campos; conferir a entidade antes de criar evita orfaos.
+    const responsavelEmpresaId = empresa_id ?? null;
+    const responsavelIctId = ict_id ?? null;
+    if (responsavelEmpresaId != null && !await Empresa.findByPk(responsavelEmpresaId)) {
+      return res.status(404).json({ message: 'Empresa não encontrada.' });
+    }
+    if (responsavelIctId != null && !await Ict.findByPk(responsavelIctId)) {
+      return res.status(404).json({ message: 'ICT não encontrada.' });
     }
 
-    // Cria o responsável associado ao usuário
-    await Responsavel.create({
-      usuario_id: novoUsuario.id,
-      cargo,
-      empresa_id: responsavelEmpresaId,
-      ict_id: responsavelIctId,
+    const senhaHash = await bcrypt.hash(senha, 10);
+    // A transaction desfaz o usuario se a criacao do responsavel falhar.
+    const novoUsuario = await sequelize.transaction(async (transaction) => {
+      const usuario = await Usuario.create({
+        nome,
+        email,
+        senha: senhaHash,
+        tipo,
+        primeiro_acesso: true,
+        endereco,
+        telefone,
+      }, { transaction });
+
+      await Responsavel.create({
+        usuario_id: usuario.id,
+        cargo,
+        empresa_id: responsavelEmpresaId,
+        ict_id: responsavelIctId,
+      }, { transaction });
+
+      return usuario;
     });
 
     await enviarEmail(
