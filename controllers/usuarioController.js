@@ -253,6 +253,11 @@ const AtualizarUsuario = async (req, res) => {
 const DeletarUsuario = async (req, res) => {
   const { id } = req.params;
 
+  // Autenticacao sozinha nao autoriza exclusao; apenas o perfil admin pode excluir.
+  if (req.user.tipo !== 'admin') {
+    return res.status(403).json({ message: 'Acesso negado. Apenas administradores podem excluir usuários.' });
+  }
+
   try {
     const usuario = await Usuario.findByPk(id);
     if (!usuario) {
@@ -280,12 +285,13 @@ const VerUsuario = async (req, res) => {
       }
     });
 
-    if (req.user.tipo !== "admin" && usuario.id !== req.user.id) {
-      return res.status(403).json({ message: 'Acesso negado.' });
+    // Verificar a ausencia antes de acessar usuario.id evita TypeError e erro 500.
+    if (!usuario) {
+      return res.status(404).json({ message: 'Usuário não encontrado' });
     }
 
-    if (!usuario) {
-      return res.status(404).json({ message: 'Usuário não encontrado.' });
+    if (req.user.tipo !== "admin" && usuario.id !== req.user.id) {
+      return res.status(403).json({ message: 'Acesso negado.' });
     }
 
     res.status(200).json(usuario);
