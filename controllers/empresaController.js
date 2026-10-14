@@ -2,6 +2,7 @@ const Empresa = require("../models").Empresa;
 const Usuario = require("../models").Usuario;
 const Rota = require("../models").Rota;
 const Programa = require("../models").Programa;
+const sequelize = require("../models").sequelize;
 const upload = require("../config/multerFotoPerfil");
 const fs = require("fs");
 const path = require("path");
@@ -43,38 +44,42 @@ const CadastrarEmpresa = async (req, res) => {
       ? `/uploads/fotos/${req.file.filename}`
       : null;
 
-    // Cria nova empresa
-    const novaEmpresa = await Empresa.create({
-      nome,
-      cnpj: cnpj || null,
-      razao_social: razao_social || null,
-      endereco,
-      area,
-      telefone,
-      uf,
-      cidade,
-      email,
-      site,
-      foto_perfil: fotoPerfilPath,
+    // Empresa, rota e programa devem persistir juntos; falhas causam rollback.
+    const novaEmpresa = await sequelize.transaction(async (transaction) => {
+      const empresa = await Empresa.create({
+        nome,
+        cnpj: cnpj || null,
+        razao_social: razao_social || null,
+        endereco,
+        area,
+        telefone,
+        uf,
+        cidade,
+        email,
+        site,
+        foto_perfil: fotoPerfilPath,
+      }, { transaction });
+
+      const rota = await Rota.create({
+        nome: "Não definido",
+        descricao: "Não definido",
+        empresa_id: empresa.id,
+      }, { transaction });
+
+      await Programa.create({
+        nome: "Não definido",
+        descricao: "Não definido",
+        empresa_id: empresa.id,
+        rota_id: rota.id,
+      }, { transaction });
+
+      return empresa;
     });
 
+    // A transaction gerenciada ja fez commit antes de anunciar sucesso.
     res.status(201).json({
       message: "Empresa cadastrada com sucesso!",
       empresa: novaEmpresa,
-    });
-
-    // criando rota e programa padrão para a nova empresa
-    const rota = await Rota.create({
-      nome: "Não definido",
-      descricao: "Não definido",
-      empresa_id: novaEmpresa.id,
-    });
-
-    const programa = await Programa.create({
-      nome: "Não definido",
-      descricao: "Não definido",
-      empresa_id: novaEmpresa.id,
-      rota_id: rota.id,
     });
   } catch (error) {
     console.error("Erro ao cadastrar empresa:", error);
