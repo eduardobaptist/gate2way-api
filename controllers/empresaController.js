@@ -82,7 +82,7 @@ const CadastrarEmpresa = async (req, res) => {
       empresa: novaEmpresa,
     });
   } catch (error) {
-    console.error("Erro ao cadastrar empresa:", error);
+    console.error('Falha na operação.');
 
     if (error.name === "SequelizeUniqueConstraintError") {
       //erro de unique constraint não respeitado
@@ -105,7 +105,7 @@ const CadastrarEmpresa = async (req, res) => {
     // Remove a imagem se houver erro no processo
     if (req.file && req.file.path) {
       fs.unlink(req.file.path, (err) => {
-        if (err) console.error("Erro ao deletar imagem:", err);
+        if (err) console.error('Falha na operação.');
       });
     }
     res
@@ -150,15 +150,7 @@ const AtualizarEmpresa = async (req, res) => {
       return res.status(404).json({ message: "Empresa não encontrada." });
     }
 
-    // Se uma nova imagem de perfil foi enviada, remove a antiga
-    if (novaFotoPerfilPath && empresa.foto_perfil) {
-      const caminhoAntigo = path.join(__dirname, "..", empresa.foto_perfil);
-      fs.unlink(caminhoAntigo, (err) => {
-        if (err) {
-          console.error("Erro ao deletar imagem antiga:", err);
-        }
-      });
-    }
+    // Preservar anexos antigos; limpeza posterior exige confirmacao das referencias.
 
     // Atualiza a empresa
     await empresa.update({
@@ -180,16 +172,9 @@ const AtualizarEmpresa = async (req, res) => {
       empresa,
     });
   } catch (error) {
-    console.error("Erro ao atualizar empresa:", error);
+    console.error('Falha na operação.');
 
-    // Remove a nova imagem se houver erro no processo
-    if (req.file && req.file.path) {
-      fs.unlink(req.file.path, (err) => {
-        if (err) {
-          console.error("Erro ao deletar nova imagem:", err);
-        }
-      });
-    }
+    // Resultado de persistencia desconhecido: nao remover arquivos potencialmente referenciados.
     res.status(500).json({ message: "Erro ao atualizar a empresa." });
   }
 };
@@ -218,7 +203,7 @@ const DeletarEmpresa = async (req, res) => {
     await empresa.destroy();
     res.status(200).json({ message: "Empresa deletada com sucesso." });
   } catch (error) {
-    console.error("Erro ao deletar empresa:", error);
+    console.error('Falha na operação.');
     res.status(500).json({ message: "Erro ao deletar a empresa." });
   }
 };
@@ -246,7 +231,7 @@ const ConsultarEmpresaPorId = async (req, res) => {
 
     res.status(200).json(empresa);
   } catch (error) {
-    console.error("Erro ao consultar empresa:", error);
+    console.error('Falha na operação.');
     res.status(500).json({ message: "Erro ao consultar a empresa." });
   }
 };
@@ -268,7 +253,7 @@ const ConsultarTodasEmpresas = async (req, res) => {
     const empresas = await Empresa.findAll();
     res.status(200).json(empresas);
   } catch (error) {
-    console.error("Erro ao consultar empresas:", error);
+    console.error('Falha na operação.');
     res.status(500).json({ message: "Erro ao consultar as empresas." });
   }
 };

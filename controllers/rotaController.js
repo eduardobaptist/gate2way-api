@@ -10,8 +10,8 @@ const CadastrarRota = async (req, res) => {
     const rota = await Rota.create({ ...req.body, empresa_id });
     res.status(201).json(rota);
   } catch (error) {
-    console.error('Erro ao criar rota:', error);
-    res.status(500).json({ message: `Erro ao criar rota: ${error.message}` });
+    console.error('Falha na operação.');
+    res.status(500).json({ message: 'Erro ao criar rota.' });
   }
 };
 
@@ -56,7 +56,7 @@ const SelecionarRota = async (req, res) => {
 
     res.status(200).json(rota);
   } catch (error) {
-    console.error('Erro ao selecionar rota:', error);
+    console.error('Falha na operação.');
     res.status(500).json({ message: 'Erro ao selecionar rota' });
   }
 };
@@ -132,7 +132,7 @@ const BuscarRotasPorEmpresaId = async (req, res) => {
       res.status(404).json({ message: 'Nenhuma rota encontrada para esta empresa' });
     }
   } catch (error) {
-    res.status(500).json({ message: `Erro ao buscar rotas por empresa: ${error.message}` });
+    res.status(500).json({ message: 'Erro ao buscar rotas por empresa.' });
   }
 };
 

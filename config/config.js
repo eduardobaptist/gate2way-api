@@ -8,11 +8,7 @@ module.exports = {
     host: process.env.DB_HOST,
     port: process.env.DB_PORT,
     dialect: "mysql",
-    logging: (msg) => {
-      if (msg.includes("ERROR")) {
-        console.log(msg);
-      }
-    },
+    logging: false,
   },
   production: {
     username: process.env.DB_USER,
@@ -21,10 +17,6 @@ module.exports = {
     host: process.env.DB_HOST,
     port: process.env.DB_PORT,
     dialect: "mysql",
-    logging: (msg) => {
-      if (msg.includes("ERROR")) {
-        console.log(msg);
-      }
-    },
+    logging: false,
   },
 };

@@ -41,8 +41,8 @@ const CadastrarOferta = async (req, res) => {
 
     res.status(201).json(novaOferta);
   } catch (error) {
-    console.error('Erro ao criar Oferta:', error);
-    res.status(500).json({ message: `Erro ao criar Oferta: ${error.message}` });
+    console.error('Falha na operação.');
+    res.status(500).json({ message: 'Erro ao criar Oferta.' });
   }
 };
 
@@ -123,8 +123,8 @@ const VerOfertas = async (req, res) => {
 
     res.status(200).json(ofertas);
   } catch (error) {
-    console.error('Erro ao buscar ofertas:', error);
-    res.status(500).json({ message: `Erro ao buscar ofertas: ${error.message}` });
+    console.error('Falha na operação.');
+    res.status(500).json({ message: 'Erro ao buscar ofertas.' });
   }
 };
 
@@ -169,7 +169,7 @@ const SelecionarOferta = async (req, res) => {
 
     res.status(200).json(oferta);
   } catch (error) {
-    console.error('Erro ao buscar oferta:', error);
+    console.error('Falha na operação.');
     res.status(500).json({ message: 'Erro ao buscar oferta.' });
   }
 };

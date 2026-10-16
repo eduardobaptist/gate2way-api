@@ -1,3 +1,4 @@
+const { publicData } = require('../services/publicData');
 const Usuario = require('../models').Usuario;
 const Responsavel = require('../models').Responsavel;
 const Empresa = require('../models').Empresa;
@@ -33,7 +34,7 @@ const TrocarSenhaPrimeiroAcesso = async (req, res) => {
       res.status(403).json({ message: 'A troca de senha inicial já foi realizada.' });
     }
   } catch (error) {
-    console.error('Erro ao trocar senha:', error);
+    console.error('Falha na operação.');
     res.status(500).json({ message: 'Erro ao trocar senha.' });
   }
 };
@@ -44,14 +45,12 @@ const ResponsavelCadastrarUsuario = async (req, res) => {
   const { nome, email, senha, endereco, telefone, cargo } = req.body;
   const usuarioLogado = req.user;
 
-  console.log('Usuário logado:', usuarioLogado);
 
   try {
     const responsavelLogado = await Responsavel.findOne({
       where: { usuario_id: usuarioLogado.id }
     });
 
-    console.log('Responsável logado:', responsavelLogado);
 
     if (!responsavelLogado) {
       return res.status(403).json({ message: 'Usuário não tem permissão para cadastrar.' });
@@ -104,10 +103,10 @@ const ResponsavelCadastrarUsuario = async (req, res) => {
 
     res.status(201).json({
       message: 'Usuário e responsável cadastrados com sucesso!',
-      usuario: novoUsuario
+      usuario: publicData(novoUsuario)
     });
   } catch (error) {
-    console.error('Erro ao cadastrar o usuário e responsável:', error); // Log do erro
+    console.error('Falha na operação.'); // Log do erro
     res.status(500).json({ message: 'Erro ao cadastrar o usuário e responsável.' });
   }
 };
@@ -164,7 +163,7 @@ const CadastrarUsuario = async (req, res) => {
 
     res.status(201).json({
       message: 'Usuário e responsável cadastrados com sucesso!',
-      usuario: novoUsuario
+      usuario: publicData(novoUsuario)
     });
   } catch (error) {
     if (error.name === 'SequelizeUniqueConstraintError') { //erro de unique constraint não respeitado
@@ -177,7 +176,7 @@ const CadastrarUsuario = async (req, res) => {
       } 
     }
 
-    console.error('Erro ao cadastrar o usuário e responsável:', error);
+    console.error('Falha na operação.');
     res.status(500).json({ message: 'Erro ao cadastrar o usuário e responsável.' });
   }
 };
@@ -187,76 +186,42 @@ const AtualizarUsuario = async (req, res) => {
   const { id } = req.params;
   const usuarioLogado = req.user;
   const { cargo } = req.body;
-  console.log('Usuário logado ID:', usuarioLogado?.id);
-  console.log('Atualizando usuário ID:', id);
-  console.log('Cargo Recebido', cargo);
 
   try {
-    const usuario = await Usuario.findByPk(id, {
-      include: { model: Responsavel, as: 'Responsavels' }
-    });
-
-    if (!usuario) {
-      return res.status(404).json({ message: 'Usuário não encontrado.' });
-    }
-
-    const responsavel = await Responsavel.findOne({ where: { usuario_id: id } });
-
-    console.log('Usuário encontrado ID:', usuario.id);
-
-    const isAdmin = usuarioLogado.tipo === 'admin';
-
-    // Verificação de permissão
-    if (!isAdmin && usuario.id !== usuarioLogado.id) {
-      return res.status(403).json({ message: 'Acesso negado. Você só pode atualizar sua própria conta.' });
-    }
-
-    // Validar antes de atualizar qualquer campo evita gravacoes parciais.
-    if (req.body.senha != null && typeof req.body.senha !== 'string') {
-      return res.status(400).json({ message: 'A senha deve ser uma string.' });
-    }
-
-    // Prepara campos permitidos
-    const camposPermitidos = ['nome', 'email', 'senha', 'telefone', 'endereco'];
-    const camposParaAtualizar = {};
-
-    for (const campo of camposPermitidos) {
-      // Senha ausente, null ou vazia preserva o hash; espacos nao sao removidos.
-      if (campo === 'senha' && (req.body.senha == null || req.body.senha === '')) continue;
-      if (req.body[campo] !== undefined && usuario[campo] !== req.body[campo]) {
-        if (campo === 'senha') {
-          camposParaAtualizar.senha = await bcrypt.hash(req.body.senha, 10);
-        } else {
-          camposParaAtualizar[campo] = req.body[campo];
+    const resultado = await sequelize.transaction(async (transaction) => {
+      const usuario = await Usuario.findByPk(id, {
+        transaction, lock: transaction.LOCK.UPDATE,
+      });
+      if (!usuario) return { status: 404, body: { message: 'Usuário não encontrado.' } };
+      if (usuarioLogado.tipo !== 'admin' && usuario.id !== usuarioLogado.id) {
+        return { status: 403, body: { message: 'Acesso negado. Você só pode atualizar sua própria conta.' } };
+      }
+      if (req.body.senha != null && typeof req.body.senha !== 'string') {
+        return { status: 400, body: { message: 'A senha deve ser uma string.' } };
+      }
+      const responsavel = await Responsavel.findOne({
+        where: { usuario_id: id }, transaction, lock: transaction.LOCK.UPDATE,
+      });
+      const changes = {};
+      for (const campo of ['nome', 'email', 'senha', 'telefone', 'endereco']) {
+        if (campo === 'senha' && (req.body.senha == null || req.body.senha === '')) continue;
+        if (req.body[campo] !== undefined && usuario[campo] !== req.body[campo]) {
+          changes[campo] = campo === 'senha' ? await bcrypt.hash(req.body.senha, 10) : req.body[campo];
         }
       }
-    }
-
-    if (Object.keys(camposParaAtualizar).length > 0) {
-      await usuario.update(camposParaAtualizar);
-    }
-
-    if (responsavel && cargo !== undefined) {
-      console.log('Cargo do responsável:', responsavel.cargo);
-      if (responsavel.cargo !== cargo) {
-        await responsavel.update({ cargo });
+      if (Object.keys(changes).length) await usuario.update(changes, { transaction });
+      if (responsavel && cargo !== undefined && responsavel.cargo !== cargo) {
+        await responsavel.update({ cargo }, { transaction });
       }
-    }
-    res.status(200).json({ message: 'Usuário atualizado com sucesso.', usuario, responsavel });
+      return { status: 200, body: publicData({ message: 'Usuário atualizado com sucesso.', usuario, responsavel }) };
+    });
+    return res.status(resultado.status).json(resultado.body);
   } catch (error) {
-    console.error('Erro ao atualizar usuário:', error);
-
-    if (error.name === 'SequelizeUniqueConstraintError') { //erro de unique constraint não respeitado
-      var field = error.errors[0].path;
-      
-      if (field === 'email') {
-        return res.status(409).json({ 
-          message: 'Este e-mail já é usado por outro usuário' 
-        });
-      } 
+    if (error.name === 'SequelizeUniqueConstraintError' && error.errors?.[0]?.path === 'email') {
+      return res.status(409).json({ message: 'Este e-mail já é usado por outro usuário' });
     }
-
-    res.status(500).json({ message: 'Erro ao atualizar o usuário.' });
+    // A perda da confirmacao de COMMIT nao comprova rollback; nao repetir automaticamente.
+    return res.status(500).json({ message: 'Não foi possível confirmar a atualização. Recarregue o usuário antes de tentar novamente.' });
   }
 };
 
@@ -306,7 +271,7 @@ const VerUsuario = async (req, res) => {
       return res.status(403).json({ message: 'Acesso negado.' });
     }
 
-    res.status(200).json(usuario);
+    res.status(200).json(publicData(usuario));
   } catch (error) {
     res.status(500).json({ message: 'Erro ao buscar o usuário.' });
   }
@@ -329,7 +294,7 @@ const VerTodosUsuarios = async (req, res) => {
       return res.status(403).json({ message: 'Acesso negado.' });
     }
 
-    res.status(200).json(usuarios);
+    res.status(200).json(publicData(usuarios));
   } catch (error) {
     res.status(500).json({ message: 'Erro ao buscar os usuários.' });
   }
@@ -362,9 +327,9 @@ const BuscarUsuarioDinamico = async (req, res) => {
       return res.status(404).json({ message: 'Nenhum usuário encontrado.' });
     }
 
-    res.status(200).json(usuarios);
+    res.status(200).json(publicData(usuarios));
   } catch (error) {
-    console.error('Erro ao buscar usuários:', error);
+    console.error('Falha na operação.');
     res.status(500).json({ message: 'Erro ao buscar usuários' });
   }
 };

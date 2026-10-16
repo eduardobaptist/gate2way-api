@@ -18,8 +18,8 @@ const CadastrarImpulso = async (req, res) => {
 
     res.status(201).json(novoImpulso);
   } catch (error) {
-    console.error("Erro ao criar Impulso:", error);
-    res.status(500).json({ message: `Erro ao criar Impulso: ${error.message}` });
+    console.error('Falha na operação.');
+    res.status(500).json({ message: 'Erro ao criar Impulso.' });
   }
 };
 
@@ -63,26 +63,30 @@ const BuscarImpulsoPorId = async (req, res) => {
 
 // Atualizar um Impulso
 const AtualizarImpulso = async (req, res) => {
+  const id = req.params?.id;
+  if (typeof id !== 'string' || !/^[1-9][0-9]{0,9}$/.test(id) || Number(id) > 2147483647 || String(Number(id)) !== id) {
+    return res.status(400).json({ message: 'ID do impulso inválido.' });
+  }
   try {
-    const { tipo, descricao, valor, data_inicio, data_fim } = req.body;
-    const impulso = await Impulso.findByPk(req.params.id);
-    const usuario = req.user;
-
-    if (impulso.empresa_id === usuario?.empresa_id || usuario.tipo === 'admin') {
-      impulso.tipo = ''; //temporário
-      impulso.descricao = descricao;
-      impulso.valor = valor;
-      impulso.data_inicio = data_inicio;
-      impulso.data_fim = data_fim;
-      impulso.empresa_id = usuario.empresa_id;
-
-      await impulso.save();
-      res.status(200).json(impulso);
-    } else {
-      res.status(404).json({ message: "Impulso não encontrado" });
-    }
+    const resultado = await sequelize.transaction(async (transaction) => {
+      const impulso = await Impulso.findByPk(Number(id), { transaction, lock: transaction.LOCK.UPDATE });
+      if (!impulso) return { status: 404, body: { message: 'Impulso não encontrado' } };
+      const owner = impulso.empresa_id;
+      const empresa = req.user?.empresa_id;
+      // Compartilhados sao somente leitura neste fluxo. Admin nao transfere a propriedade.
+      if (!Number.isSafeInteger(owner) || owner <= 0 ||
+          (req.user?.tipo !== 'admin' && (!Number.isSafeInteger(empresa) || empresa <= 0 || empresa !== owner))) {
+        return { status: 403, body: { message: 'Você não tem permissão para atualizar esse impulso' } };
+      }
+      for (const campo of ['tipo', 'descricao', 'valor', 'data_inicio', 'data_fim']) {
+        if (req.body[campo] !== undefined) impulso[campo] = req.body[campo];
+      }
+      await impulso.save({ transaction });
+      return { status: 200, body: impulso };
+    });
+    return res.status(resultado.status).json(resultado.body);
   } catch (error) {
-    res.status(500).json({ message: "Erro ao atualizar Impulso" });
+    return res.status(500).json({ message: 'Não foi possível confirmar a atualização do impulso. Recarregue antes de tentar novamente.' });
   }
 };
 

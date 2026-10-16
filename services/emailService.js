@@ -8,9 +8,8 @@ const enviarEmail = async (para, assunto, texto) => {
       subject: assunto,
       text: texto
     });
-    console.log('E-mail enviado:', info.messageId);
   } catch (error) {
-    console.error('Erro ao enviar e-mail:', error);
+    console.error('Falha na operação.');
   }
 };
 
