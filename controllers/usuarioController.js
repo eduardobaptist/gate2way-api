@@ -182,7 +182,7 @@ const AtualizarUsuario = async (req, res) => {
   const { id } = req.params;
   const usuarioLogado = req.user;
   const { cargo } = req.body;
-  console.log('Usuário logado:', usuarioLogado);
+  console.log('Usuário logado ID:', usuarioLogado?.id);
   console.log('Atualizando usuário ID:', id);
   console.log('Cargo Recebido', cargo);
 
@@ -197,7 +197,7 @@ const AtualizarUsuario = async (req, res) => {
 
     const responsavel = await Responsavel.findOne({ where: { usuario_id: id } });
 
-    console.log('Usuário encontrado:', usuario);
+    console.log('Usuário encontrado ID:', usuario.id);
 
     const isAdmin = usuarioLogado.tipo === 'admin';
 
@@ -206,11 +206,18 @@ const AtualizarUsuario = async (req, res) => {
       return res.status(403).json({ message: 'Acesso negado. Você só pode atualizar sua própria conta.' });
     }
 
+    // Validar antes de atualizar qualquer campo evita gravacoes parciais.
+    if (req.body.senha != null && typeof req.body.senha !== 'string') {
+      return res.status(400).json({ message: 'A senha deve ser uma string.' });
+    }
+
     // Prepara campos permitidos
     const camposPermitidos = ['nome', 'email', 'senha', 'telefone', 'endereco'];
     const camposParaAtualizar = {};
 
     for (const campo of camposPermitidos) {
+      // Senha ausente, null ou vazia preserva o hash; espacos nao sao removidos.
+      if (campo === 'senha' && (req.body.senha == null || req.body.senha === '')) continue;
       if (req.body[campo] !== undefined && usuario[campo] !== req.body[campo]) {
         if (campo === 'senha') {
           camposParaAtualizar.senha = await bcrypt.hash(req.body.senha, 10);
