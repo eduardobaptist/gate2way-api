@@ -4,8 +4,6 @@ const Rota = require("../models").Rota;
 const Programa = require("../models").Programa;
 const sequelize = require("../models").sequelize;
 const upload = require("../config/multerFotoPerfil");
-const fs = require("fs");
-const path = require("path");
 
 // Função para verificar se o usuário é admin
 const VerificarAdmin = async (usuarioId) => {
@@ -102,12 +100,7 @@ const CadastrarEmpresa = async (req, res) => {
       }
     }
 
-    // Remove a imagem se houver erro no processo
-    if (req.file && req.file.path) {
-      fs.unlink(req.file.path, (err) => {
-        if (err) console.error('Falha na operação.');
-      });
-    }
+    // Reter o upload: falha ou confirmacao perdida nao prova ausencia de referencia no banco.
     res
       .status(500)
       .json({ message: "Ocorreu um erro ao cadastrar a empresa." });

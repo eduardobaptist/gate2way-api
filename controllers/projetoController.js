@@ -15,7 +15,6 @@ const Usuario = require("../models").Usuario;
 const ProjectsViews = require("../models").ProjectView;
 const Ict = require("../models").Ict;
 const Responsavel = require("../models").Responsavel;
-const fs = require("fs");
 
 const { literal } = require("sequelize");
 
@@ -101,7 +100,7 @@ const SelecionarProjeto = async (req, res) => {
 const CadastrarProjeto = async (req, res) => {
   const usuarioLogado = req.user;
   let { programa_id, keywords } = req.body;
-  usuario_id = req.user.id;
+  const usuario_id = req.user.id;
 
   try {
     const programa = await Programa.findByPk(programa_id, {
@@ -151,12 +150,7 @@ const CadastrarProjeto = async (req, res) => {
   } catch (error) {
     console.error('Falha na operação.');
 
-    // Remove o arquivo se houver erro no cadastro
-    if (req.file && req.file.path) {
-      fs.unlink(req.file.path, (err) => {
-        if (err) console.error('Falha na operação.');
-      });
-    }
+    // Reter o upload: falha ou confirmacao perdida nao prova ausencia de referencia no banco.
 
     res.status(500).json({ message: "Erro ao criar o projeto." });
   }
