@@ -29,7 +29,6 @@ const CadastrarPrograma = async (req, res) => {
 
     // Se o usuário for empresa, verificar se a rota pertence à empresa dele antes de cadastrar o programa
     if (!isAdmin) {
-      console.log('é empresa');
       const rotaPertenceEmpresa = await verificarRotaDaEmpresa(usuarioLogado.empresa_id, rota_id);
       if (!rotaPertenceEmpresa) {
         return res.status(403).json({ message: 'Acesso negado. A rota selecionada deve pertencer à sua empresa.' });
@@ -45,8 +44,8 @@ const CadastrarPrograma = async (req, res) => {
 
     res.status(201).json(programa);
   } catch (error) {
-    console.error('Erro ao criar programa:', error);
-    res.status(500).json({ message: `Erro ao criar programa: ${error.message}` });
+    console.error('Falha na operação.');
+    res.status(500).json({ message: 'Erro ao criar programa.' });
   }
 };
 
@@ -89,7 +88,6 @@ const SelecionarPrograma = async (req, res) => {
   const usuarioLogado = req.user;
 
   try {
-    console.log("Buscando programa com ID:", req.params.id);
 
     // Buscar o programa e incluir a Rota associada
     const programa = await Programa.findByPk(req.params.id, {
@@ -106,7 +104,6 @@ const SelecionarPrograma = async (req, res) => {
       return res.status(404).json({ message: 'Programa não encontrado' });
     }
 
-    console.log("Rota associada ao programa:", programa.Rota);
 
     const isAdmin = usuarioLogado.tipo === 'admin';
     const isProprietario = programa.Rota.empresa_id === usuarioLogado.empresa_id;
@@ -119,7 +116,7 @@ const SelecionarPrograma = async (req, res) => {
     // Se a verificação passar, retorna o programa
     res.status(200).json(programa);
   } catch (error) {
-    console.error('Erro ao selecionar programa:', error);
+    console.error('Falha na operação.');
     res.status(500).json({ message: 'Erro ao selecionar programa' });
   }
 };
@@ -129,7 +126,6 @@ const AtualizarPrograma = async (req, res) => {
   const usuarioLogado = req.user;
 
   try {
-    console.log("Buscando programa com ID:", req.params.id);
 
     // Buscar o programa e incluir a Rota associada
     const programa = await Programa.findByPk(req.params.id, {
@@ -140,17 +136,14 @@ const AtualizarPrograma = async (req, res) => {
     });
 
     if (!programa) {
-      console.log("Programa não encontrado.");
       return res.status(404).json({ message: 'Programa não encontrado' });
     }
 
-    console.log("Rota associada ao programa:", programa.Rota);
 
     const isAdmin = usuarioLogado.tipo === 'admin';
     const isProprietario = programa.Rota.empresa_id === usuarioLogado.empresa_id;
 
     if (!isAdmin && !isProprietario) {
-      console.log("Acesso negado. Empresa:", usuarioLogado.empresa_id, "Proprietário do programa:", programa.Rota.empresa_id);
       return res.status(403).json({ message: 'Acesso negado. Você só pode atualizar seus próprios programas.' });
     }
 
@@ -163,7 +156,7 @@ const AtualizarPrograma = async (req, res) => {
 
     res.status(200).json(programa);
   } catch (error) {
-    console.error('Erro ao atualizar programa:', error);
+    console.error('Falha na operação.');
     res.status(500).json({ message: 'Erro ao atualizar programa' });
   }
 };
@@ -173,7 +166,6 @@ const DeletarPrograma = async (req, res) => {
   const usuarioLogado = req.user;
 
   try {
-    console.log("Buscando programa para deletar com ID:", req.params.id);
 
     // Buscar o programa e incluir a Rota associada
     const programa = await Programa.findByPk(req.params.id, {
@@ -187,7 +179,6 @@ const DeletarPrograma = async (req, res) => {
       return res.status(404).json({ message: 'Programa não encontrado' });
     }
 
-    console.log("Rota associada ao programa:", programa.Rota);
 
     const isAdmin = usuarioLogado.tipo === 'admin';
     const isProprietario = programa.Rota.empresa_id === usuarioLogado.empresa_id;
@@ -200,7 +191,7 @@ const DeletarPrograma = async (req, res) => {
     await programa.destroy();
     res.status(200).json({ message: 'Programa deletado com sucesso' });
   } catch (error) {
-    console.error('Erro ao deletar programa:', error);
+    console.error('Falha na operação.');
     res.status(500).json({ message: 'Erro ao deletar programa' });
   }
 };
@@ -228,7 +219,7 @@ const BuscarProgramaPorEmpresaId = async (req, res) => {
       res.status(404).json({ message: 'Nenhum programa foi encontrado para esta empresa' });
     }
   } catch (error) {
-    res.status(500).json({ message: `Erro ao buscar rotas por empresa: ${error.message}` });
+    res.status(500).json({ message: 'Erro ao buscar rotas por empresa.' });
   }
 };
 

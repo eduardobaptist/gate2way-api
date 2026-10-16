@@ -92,7 +92,7 @@ const SelecionarProjeto = async (req, res) => {
       project_id: projeto.id,
     });
   } catch (error) {
-    console.error(error);
+    console.error('Falha na operação.');
     res.status(500).json({ message: "Erro ao buscar o projeto." });
   }
 };
@@ -149,12 +149,12 @@ const CadastrarProjeto = async (req, res) => {
 
     res.status(201).json(novoProjeto);
   } catch (error) {
-    console.error("Erro ao criar o projeto:", error);
+    console.error('Falha na operação.');
 
     // Remove o arquivo se houver erro no cadastro
     if (req.file && req.file.path) {
       fs.unlink(req.file.path, (err) => {
-        if (err) console.error("Erro ao deletar arquivo:", err);
+        if (err) console.error('Falha na operação.');
       });
     }
 
@@ -259,7 +259,7 @@ const AtualizarProjeto = async (req, res) => {
       return res.status(error.status).json({ code: error.code, message: error.message });
     }
     // Do not log request bodies, Canvas content or SQL error values.
-    console.error("Erro ao atualizar o projeto.");
+    console.error('Falha na operação.');
     return res.status(500).json({ message: "Erro ao atualizar o projeto." });
   }
   // Sending a response is outside the transaction catch: do not send twice.
@@ -299,7 +299,7 @@ const DeletarProjeto = async (req, res) => {
     await projeto.destroy();
     res.status(200).json({ message: "Projeto deletado com sucesso." });
   } catch (error) {
-    console.error("Erro ao deletar projeto:", error);
+    console.error('Falha na operação.');
     res.status(500).json({ message: "Erro ao deletar o projeto." });
   }
 };
@@ -383,7 +383,7 @@ const VerProjetos = async (req, res) => {
 
     res.status(200).json(projetos);
   } catch (error) {
-    console.error("Erro ao buscar projetos:", error);
+    console.error('Falha na operação.');
     res.status(500).json({ message: "Erro ao buscar projetos." });
   }
 };

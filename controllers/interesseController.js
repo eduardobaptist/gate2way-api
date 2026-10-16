@@ -143,10 +143,10 @@ const CriarInteresse = async (req, res) => {
       interesse,
     });
   } catch (error) {
-    console.error("Erro ao criar interesse:", error);
+    console.error('Falha na operação.');
     res
       .status(500)
-      .json({ message: `Erro ao criar interesse: ${error.message}` });
+      .json({ message: 'Erro ao criar interesse.' });
   }
 };
 
@@ -181,11 +181,10 @@ async function BuscarInteressesPorOferta(req, res) {
       return res.status(404).json({ message: "Oferta não encontrada" });
     }
 
-    console.log("Oferta encontrada:", oferta.toJSON());
 
     res.json(oferta);
   } catch (error) {
-    console.error("Erro ao buscar propostas da oferta:", error);
+    console.error('Falha na operação.');
     res.status(500).json({ message: "Erro ao buscar propostas" });
   }
 }
@@ -196,8 +195,6 @@ const SelecionarInteresse = async (req, res) => {
   const { id } = req.params;
 
   try {
-    console.log("Iniciando processo de seleção do interesse:", id);
-    console.log("Usuário logado:", usuarioLogado);
 
     // Buscar o interesse com base no id fornecido e incluir a oferta e suas associações
     const interesse = await Interesse.findByPk(id, {
@@ -222,15 +219,14 @@ const SelecionarInteresse = async (req, res) => {
       },
     });
 
-    console.log("Status atualizado com sucesso. Interesse selecionado.");
     res
       .status(200)
       .json({ message: "Interesse selecionado com sucesso.", interesse });
   } catch (error) {
-    console.error("Erro ao selecionar o interesse:", error);
+    console.error('Falha na operação.');
     res
       .status(500)
-      .json({ message: `Erro ao selecionar o interesse: ${error.message}` });
+      .json({ message: 'Erro ao selecionar o interesse.' });
   }
 };
 
@@ -272,7 +268,7 @@ const RejeitarInteresse = async (req, res) => {
     await interesse.update({ status: Interesse.STATUS.RECUSADO });
     res.status(200).json({ message: "Proposta rejeitada com sucesso." });
   } catch (error) {
-    console.error("Erro ao rejeitar proposta:", error);
+    console.error('Falha na operação.');
     res.status(500).json({ message: "Ocorreu um erro ao rejeitar a proposta" });
   }
 };
@@ -359,7 +355,7 @@ const ListarInteresses = async (req, res) => {
     // Responde com a lista de interesses
     res.status(200).json(interesses);
   } catch (error) {
-    console.error("Erro ao listar interesses: ", error);
+    console.error('Falha na operação.');
     res.status(500).json({ message: "Erro ao listar interesses" });
   }
 };

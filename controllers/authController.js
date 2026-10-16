@@ -69,7 +69,7 @@ const Login = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Erro ao fazer login:", error);
+    console.error('Falha na operação.');
     res.status(500).json({ message: "Erro ao fazer login." });
   }
 };

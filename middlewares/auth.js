@@ -35,7 +35,7 @@ const AutenticarToken = async (req, res, next) => {
     };
     next();
   } catch (err) {
-    console.error('Erro ao consultar usuário autenticado:', err);
+    console.error('Falha na operação.');
     res.status(500).json({ message: 'Erro ao consultar usuário autenticado.' });
   }
 };

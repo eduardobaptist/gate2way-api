@@ -14,8 +14,8 @@ const CadastrarResponsavel = async (req, res) => {
         const responsavel = await Responsavel.create(req.body);
         res.status(201).json(responsavel);
     } catch (error) {
-        console.error('Erro ao criar responsável:', error);
-        res.status(500).json({ message: `Erro ao criar responsável: ${error.message}` });
+        console.error('Falha na operação.');
+        res.status(500).json({ message: 'Erro ao criar responsável.' });
     }
 };
 
@@ -199,7 +199,7 @@ const BuscarResponsavelDinamico = async (req, res) => {
   
       res.status(200).json(responsaveis);
     } catch (error) {
-      console.error('Erro ao buscar responsáveis:', error);
+      console.error('Falha na operação.');
       res.status(500).json({ message: 'Erro ao buscar responsáveis.' });
     }
   };

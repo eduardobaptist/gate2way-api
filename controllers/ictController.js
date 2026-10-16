@@ -42,12 +42,12 @@ const CadastrarIct = async (req, res) => {
       ict: novaIct
     });
   } catch (error) {
-    console.error('Erro ao criar ICT:', error);
+    console.error('Falha na operação.');
 
     // Remover a imagem se houver erro
     if (req.file && req.file.path) {
       fs.unlink(req.file.path, (err) => {
-        if (err) console.error('Erro ao deletar imagem:', err);
+        if (err) console.error('Falha na operação.');
       });
     }
 
@@ -90,13 +90,7 @@ const AtualizarIct = async (req, res) => {
       return res.status(404).json({ message: 'ICT não encontrada' });
     }
 
-    // Se uma nova imagem de perfil foi enviada, remover a anterior
-    if (novaFotoPerfilPath && ict.foto_perfil) {
-      const caminhoAntigo = path.join(__dirname, '..', ict.foto_perfil);
-      fs.unlink(caminhoAntigo, (err) => {
-        if (err) console.error('Erro ao deletar imagem antiga:', err);
-      });
-    }
+    // Preservar anexos antigos; limpeza posterior exige confirmacao das referencias.
 
     // Atualizar campos da ICT
     await ict.update({
@@ -117,14 +111,9 @@ const AtualizarIct = async (req, res) => {
       ict
     });
   } catch (error) {
-    console.error('Erro ao atualizar ICT:', error);
+    console.error('Falha na operação.');
 
-    // Remover a nova imagem se ocorrer um erro
-    if (req.file && req.file.path) {
-      fs.unlink(req.file.path, (err) => {
-        if (err) console.error('Erro ao deletar nova imagem:', err);
-      });
-    }
+    // Resultado de persistencia desconhecido: nao remover arquivos potencialmente referenciados.
 
     res.status(500).json({ message: 'Erro ao atualizar ICT' });
   }
@@ -188,7 +177,7 @@ const DeletarIct = async (req, res) => {
       if (ict.foto_perfil) {
         const caminhoFoto = path.join(__dirname, '..', ict.foto_perfil);
         fs.unlink(caminhoFoto, (err) => {
-          if (err) console.error('Erro ao deletar imagem da ICT:', err);
+          if (err) console.error('Falha na operação.');
         });
       }
 

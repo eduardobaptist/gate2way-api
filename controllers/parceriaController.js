@@ -127,25 +127,21 @@ const AceitarInteresse = async (req, res) => {
         "Interesse Aceito - Gate2Way",
         `Olá ${interessado.nome},\n\nSeu interesse no projeto "${projeto.nome}" foi aceito! Entre em contato com o responsável pelo projeto para mais detalhes:\n\nNome: ${responsavelProjeto.nome}\nEmail: ${responsavelProjeto.email}\nTelefone: ${responsavelProjeto.telefone}\n\nAtenciosamente,\nEquipe Gate2Way`
       );
-      console.log("E-mail enviado para:", interessado.email);
 
       await enviarEmail(
         responsavelProjeto.email,
         "Interesse Aceito - Gate2Way",
         `Olá ${responsavelProjeto.nome},\n\nO interessado "${interessado.nome}" aceitou seu interesse no projeto "${projeto.nome}".\n\nAtenciosamente,\nEquipe Gate2Way`
       );
-      console.log("E-mail enviado para:", responsavelProjeto.email);
     } else {
-      console.error(
-        "Interessado ou responsável pelo projeto não encontrado, e-mail não enviado."
-      );
+      console.error('Falha na operação.');
     }
   } catch (error) {
     await t.rollback();
-    console.error("Erro ao formalizar a parceria:", error);
+    console.error('Falha na operação.');
     res
       .status(500)
-      .json({ message: `Erro ao formalizar a parceria: ${error.message}` });
+      .json({ message: 'Erro ao formalizar a parceria.' });
   }
 };
 
@@ -156,8 +152,6 @@ const AtualizarParceria = async (req, res) => {
   const { status, data_fim } = req.body;
 
   try {
-    console.log("Usuário logado:", usuarioLogado);
-    console.log("Atualizando parceria ID:", parceria_id);
 
     const parceria = await Parceria.findByPk(parceria_id, {
       include: {
@@ -183,7 +177,6 @@ const AtualizarParceria = async (req, res) => {
     });
 
     if (!parceria) {
-      console.log("Parceria não encontrado ou acesso negado");
       return res
         .status(404)
         .json({ message: "Parceria não encontrado ou acesso negado." });
@@ -193,13 +186,12 @@ const AtualizarParceria = async (req, res) => {
     parceria.data_fim = data_fim;
     await parceria.save();
 
-    console.log("Parceria atualizado:", parceria);
 
     res
       .status(200)
       .json({ message: "Parceria atualizado com sucesso", parceria });
   } catch (error) {
-    console.error("Erro ao atualizar parceria:", error);
+    console.error('Falha na operação.');
     res.status(500).json({ message: "Erro ao atualizar parceria." });
   }
 };
@@ -210,8 +202,6 @@ const DeletarParceria = async (req, res) => {
   const usuarioLogado = req.user;
 
   try {
-    console.log("Usuário logado:", usuarioLogado);
-    console.log("Deletando parceria ID:", parceria_id);
 
     const parceria = await Parceria.findByPk(parceria_id, {
       include: {
@@ -236,18 +226,16 @@ const DeletarParceria = async (req, res) => {
     });
 
     if (!parceria) {
-      console.log("Parceria não encontrado ou acesso negado");
       return res
         .status(404)
         .json({ message: "Parceria não encontrado ou acesso negado." });
     }
 
     await parceria.destroy();
-    console.log("Parceria deletado com sucesso");
 
     res.status(200).json({ message: "Parceria deletado com sucesso." });
   } catch (error) {
-    console.error("Erro ao deletar parceria:", error);
+    console.error('Falha na operação.');
     res.status(500).json({ message: "Erro ao deletar parceria." });
   }
 };
@@ -365,7 +353,7 @@ const ListarParcerias = async (req, res) => {
 
     res.status(200).json(parcerias);
   } catch (error) {
-    console.error("Erro ao listar parcerias:", error);
+    console.error('Falha na operação.');
     res.status(500).json({ message: "Erro ao listar parcerias." });
   }
 };
@@ -376,7 +364,6 @@ const SelecionarParceriaPorId = async (req, res) => {
   const usuarioLogado = req.user;
 
   try {
-    console.log("Buscando parceria por ID:", parceria_id);
 
     const parceria = await Parceria.findByPk(parceria_id, {
       include: {
@@ -398,17 +385,15 @@ const SelecionarParceriaPorId = async (req, res) => {
     });
 
     if (!parceria) {
-      console.log("Parceria não encontrado ou acesso negado");
       return res
         .status(404)
         .json({ message: "Parceria não encontrado ou acesso negado." });
     }
 
-    console.log("Parceria encontrado:", parceria);
 
     res.status(200).json(parceria);
   } catch (error) {
-    console.error("Erro ao buscar parceria:", error);
+    console.error('Falha na operação.');
     res.status(500).json({ message: "Erro ao buscar parceria." });
   }
 };
