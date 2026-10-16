@@ -1,8 +1,6 @@
 const Ict = require('../models').Ict;
 const Usuario = require('../models').Usuario;
 const upload = require('../config/multerFotoPerfil');
-const fs = require('fs');
-const path = require('path');
 
 // Função para verificar se o usuário é admin
 const VerificarAdmin = async (usuarioId) => {
@@ -44,12 +42,7 @@ const CadastrarIct = async (req, res) => {
   } catch (error) {
     console.error('Falha na operação.');
 
-    // Remover a imagem se houver erro
-    if (req.file && req.file.path) {
-      fs.unlink(req.file.path, (err) => {
-        if (err) console.error('Falha na operação.');
-      });
-    }
+    // Reter o upload: falha ou confirmacao perdida nao prova ausencia de referencia no banco.
 
     if (error.name === 'SequelizeUniqueConstraintError') { //erro de unique constraint não respeitado
       var field = error.errors[0].path;
@@ -173,13 +166,7 @@ const DeletarIct = async (req, res) => {
 
     const ict = await Ict.findByPk(req.params.id);
     if (ict) {
-      // Remover imagem da ICT antes de deletar
-      if (ict.foto_perfil) {
-        const caminhoFoto = path.join(__dirname, '..', ict.foto_perfil);
-        fs.unlink(caminhoFoto, (err) => {
-          if (err) console.error('Falha na operação.');
-        });
-      }
+      // Reter a imagem; a exclusao do registro pode falhar ou ter resultado indeterminado.
 
       await ict.destroy();
       res.status(200).json({ message: 'ICT deletada com sucesso' });

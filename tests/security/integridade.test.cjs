@@ -172,3 +172,34 @@ test('Importar app nao autentica, sincroniza nem inicia servidor', () => {
   vm.runInNewContext(fs.readFileSync(path.join(root, 'app.js'), 'utf8'), sandbox);
   assert.equal(sandbox.module.exports.app, app);
 });
+for (const [model, file, handler] of [['Empresa', 'empresaController.js', 'CadastrarEmpresa'], ['Ict', 'ictController.js', 'CadastrarIct']]) {
+  test(`Falha indeterminada no cadastro de ${model} nao remove upload`, async () => {
+    const models = { Usuario: { findByPk: async () => ({ tipo: 'admin' }) }, [model]: { create: async () => { throw Error('Confirmacao sintetica perdida'); } }, sequelize: { transaction: async fn => fn({}) } };
+    const api = load('controllers/' + file, { '../models': models, '../config/multerFotoPerfil': {}, fs: { unlink() { assert.fail('Upload pode estar referenciado'); } }, path });
+    const r = await response(api[handler], { user: { id: 1 }, body: { nome: 'Sintetico' }, file: { filename: 'sintetico.png', path: 'uploads/fotos/sintetico.png' } });
+    assert.equal(r.status, 500);
+  });
+}
+test('Falha ao excluir ICT nao remove a imagem referenciada', async () => {
+  const api = load('controllers/ictController.js', { '../models': { Usuario: { findByPk: async () => ({ tipo: 'admin' }) }, Ict: { findByPk: async () => ({ foto_perfil: '/uploads/fotos/sintetico.png', destroy: async () => { throw Error('Falha sintetica'); } }) } }, '../config/multerFotoPerfil': {}, fs: { unlink() { assert.fail('Nao remover imagem'); } }, path });
+  assert.equal((await response(api.DeletarIct, { user: { id: 1 }, params: { id: '1' } })).status, 500);
+});
+function projectCreation(models) {
+  return load('controllers/projetoController.js', { '../models': models, sequelize: { Op: {}, QueryTypes: {}, literal() {} }, '../services/projetoCanvas': require('../../services/projetoCanvas'), '../dtos/projetoDTO': { projetoDTO() {} }, fs: { unlink() { assert.fail('Nao remover upload potencialmente referenciado'); } } });
+}
+test('Falha apos criar Projeto mantem upload que pode estar referenciado', async () => {
+  let created;
+  const api = projectCreation({ Programa: { findByPk: async () => ({ Rota: { empresa_id: 10 } }) }, Projeto: { create: async data => { created = data; return { id: 1, ...data }; } }, Keyword: { findOne: async () => { throw Error('Falha sintetica apos gravacao'); } } });
+  const r = await response(api.CadastrarProjeto, { user: { id: 1, tipo: 'empresa', empresa_id: 10 }, body: { programa_id: 1, keywords: 'teste' }, file: { filename: 'sintetico.pdf', path: 'uploads/arquivos/sintetico.pdf' } });
+  assert.equal(r.status, 500); assert.equal(created.upload, '/uploads/arquivos/sintetico.pdf');
+});
+test('Cadastros concorrentes de projetos preservam o autor de cada requisicao', async () => {
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const api = projectCreation({ Programa: { findByPk: async id => { if (id === 1) await gate; return { Rota: { empresa_id: 10 } }; } }, Projeto: { create: async data => ({ id: data.usuario_id, ...data }) } });
+  const first = response(api.CadastrarProjeto, { user: { id: 1, tipo: 'empresa', empresa_id: 10 }, body: { programa_id: 1 } });
+  const second = await response(api.CadastrarProjeto, { user: { id: 2, tipo: 'empresa', empresa_id: 10 }, body: { programa_id: 2 } });
+  release(); const result = await first;
+  assert.equal(result.status, 201); assert.equal(second.status, 201);
+  assert.equal(result.body.usuario_id, 1); assert.equal(second.body.usuario_id, 2);
+});
