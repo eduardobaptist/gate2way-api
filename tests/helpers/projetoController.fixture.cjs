@@ -30,10 +30,16 @@ function harness(options = {}) {
       if (sql.includes('CAST(estilo AS CHAR)')) {
         assert.equal(args.replacements.id, active.row.id);
         return [{ estilo_raw: options.rawStyle !== undefined ? options.rawStyle :
-          active.row.estilo == null ? null : JSON.stringify(active.row.estilo) }];
+          active.row.estilo == null ? null : options.columns?.[0]?.data_type === 'longtext'
+            ? active.row.estilo : JSON.stringify(active.row.estilo) }];
       }
       assert.equal(args.replacements.table, 'projetos');
       if (sql.includes('information_schema.TABLES')) return options.tables || [{ engine: 'InnoDB' }];
+      if (sql.includes('information_schema.CHECK_CONSTRAINTS')) {
+        assert.match(sql, /tc\.ENFORCED = 'YES'/);
+        assert.match(sql, /tc\.TABLE_SCHEMA = DATABASE\(\)/);
+        return options.checks || [];
+      }
       assert.equal(args.replacements.column, 'estilo');
       return options.columns || [{ data_type: 'json' }];
     },
@@ -87,8 +93,9 @@ function harness(options = {}) {
           writes.push(structuredClone(changes));
           if (options.updateError) throw new Error('Falha sintética');
           Object.assign(tx.row, changes);
-          // Simulate a JSON SQL column decoded by mysql2, including JSON strings.
-          if (Object.hasOwn(changes, 'estilo')) tx.row.estilo = JSON.parse(changes.estilo);
+          // Simulate mysql2: JSON is decoded, while LONGTEXT stays a raw string.
+          if (Object.hasOwn(changes, 'estilo')) tx.row.estilo = options.columns?.[0]?.data_type === 'longtext'
+            ? changes.estilo : JSON.parse(changes.estilo);
         },
       };
     },

@@ -204,6 +204,39 @@ for (const options of [{ dialect: 'sqlite' }, { tables: [] }, { tables: [{ engin
   });
 }
 
+for (const clause of ['json_valid(`estilo`)', '( JSON_VALID( `estilo` ) )']) {
+  test(`LONGTEXT legado com restrição JSON ativa preserva o Canvas: ${clause}`, async () => {
+    const initial = project();
+    initial.estilo = JSON.stringify(initial.estilo);
+    const h = harness({ initial, columns: [{ data_type: 'longtext' }], checks: [{ check_clause: clause }] });
+    const response = await h.run(patch(initial));
+    assert.equal(response.status, 200);
+    const stored = h.stored();
+    assert.equal(typeof stored.estilo, 'string');
+    const expected = JSON.parse(initial.estilo);
+    expected.justificativas.textarea_value = 'Novo conteúdo';
+    assert.deepEqual(JSON.parse(stored.estilo), expected);
+    for (const key of canvas.CAMPOS_CANVAS.filter(key => key !== 'justificativas')) {
+      assert.deepEqual(stored[key], initial[key]);
+    }
+    assert.equal(response.body.canvas_revision, canvas.revision(stored));
+  });
+}
+
+for (const checks of [[], [{ check_clause: 'json_valid(`outro`)' }],
+  [{ check_clause: 'json_valid(`estilo`) OR 1' }], [{ check_clause: 'json_validestilo' }],
+  [{ check_clause: "'json_valid(estilo)'" }], [{ check_clause: null }]]) {
+  test(`LONGTEXT sem validação JSON suficiente não altera nenhum campo: ${JSON.stringify(checks)}`, async () => {
+    const initial = project();
+    initial.estilo = JSON.stringify(initial.estilo);
+    const h = harness({ initial, columns: [{ data_type: 'longtext' }], checks });
+    const response = await h.run({ nome: 'Não persistir', ...patch(initial) });
+    assert.equal(response.status, 503);
+    assert.equal(h.writes.length, 0);
+    assert.deepEqual(h.stored(), initial);
+  });
+}
+
 for (const option of ['beginError', 'metadataError', 'findError', 'updateError']) {
   test(`falha ${option} não confirma gravação`, async () => {
     const initial = project();
