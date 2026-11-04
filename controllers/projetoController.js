@@ -196,13 +196,22 @@ const AtualizarProjeto = async (req, res) => {
       const canvas = updates(projeto, req.body);
       let estiloParaGravar;
       if (Object.keys(canvas).length) {
-        // STRING in the model differs from JSON in the migration. Do not risk
-        // truncation or conversion in an unverified historical column type.
+        // O dump MariaDB usa LONGTEXT com CHECK JSON_VALID. Confirma a restrição
+        // ativa antes de aceitar esse legado, sem converter dados ou alterar a tabela.
         const columns = await sequelize.query(
           "SELECT DATA_TYPE AS data_type FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table AND COLUMN_NAME = :column",
           { replacements: { table: "projetos", column: "estilo" }, type: QueryTypes.SELECT, transaction }
         );
-        if (columns.length !== 1 || columns[0].data_type !== "json") {
+        let storageVerified = columns.length === 1 && columns[0].data_type === "json";
+        if (columns.length === 1 && columns[0].data_type === "longtext") {
+          const checks = await sequelize.query(
+            "SELECT cc.CHECK_CLAUSE AS check_clause FROM information_schema.TABLE_CONSTRAINTS tc JOIN information_schema.CHECK_CONSTRAINTS cc ON tc.CONSTRAINT_SCHEMA = cc.CONSTRAINT_SCHEMA AND tc.CONSTRAINT_NAME = cc.CONSTRAINT_NAME WHERE tc.TABLE_SCHEMA = DATABASE() AND tc.TABLE_NAME = :table AND tc.CONSTRAINT_TYPE = 'CHECK' AND tc.ENFORCED = 'YES'",
+            { replacements: { table: "projetos" }, type: QueryTypes.SELECT, transaction }
+          );
+          storageVerified = checks.some(check => typeof check.check_clause === "string" &&
+            /^\(*json_valid\(estilo\)\)*$/.test(check.check_clause.replace(/[\s`]/g, "").toLowerCase()));
+        }
+        if (!storageVerified) {
           throw new CanvasError(503, "CANVAS_STORAGE_UNVERIFIED", "Tipo de armazenamento do Canvas não confirmado.");
         }
         const raw = await sequelize.query(

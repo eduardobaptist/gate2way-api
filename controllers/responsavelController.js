@@ -2,18 +2,73 @@ const Responsavel = require('../models').Responsavel;
 const Empresa = require('../models').Empresa;
 const Ict = require('../models').Ict;
 const Usuario = require('../models').Usuario;
+const sequelize = require('../models').sequelize;
 const { Op } = require('sequelize');  
 
 // Criar um novo Responsavel
 const CadastrarResponsavel = async (req, res) => {
     // Criar um vinculo diretamente e uma operacao administrativa.
-    if (req.user.tipo !== 'admin') {
+    if (req.user?.tipo !== 'admin') {
         return res.status(403).json({ message: 'Apenas administradores podem criar vínculos de responsáveis.' });
     }
+    const body = req.body;
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+        return res.status(400).json({ message: 'Informe os dados do responsável.' });
+    }
+    const { usuario_id, empresa_id = null, ict_id = null, cargo = null } = body;
+    for (const [campo, valor] of Object.entries({ usuario_id, empresa_id, ict_id })) {
+        if (campo !== 'usuario_id' && valor === null) continue;
+        if (!['number', 'string'].includes(typeof valor) || !/^[1-9]\d*$/.test(String(valor)) ||
+            String(Number(valor)) !== String(valor) ||
+            !Number.isSafeInteger(Number(valor)) || Number(valor) > 2147483647) {
+            return res.status(400).json({ message: `${campo} deve ser um inteiro positivo válido.` });
+        }
+    }
+    if (empresa_id !== null && ict_id !== null) {
+        return res.status(400).json({ message: 'Informe apenas empresa_id ou ict_id.' });
+    }
+    if (cargo !== null && (typeof cargo !== 'string' || Array.from(cargo).length > 255)) {
+        return res.status(400).json({ message: 'Cargo deve ser um texto de até 255 caracteres ou null.' });
+    }
     try {
-        const responsavel = await Responsavel.create(req.body);
-        res.status(201).json(responsavel);
+        const resultado = await sequelize.transaction(async (transaction) => {
+            const usuarioId = Number(usuario_id);
+            // BE-02: bloqueia o usuário para serializar cadastros simultâneos do mesmo vínculo.
+            const usuario = await Usuario.findByPk(usuarioId, { transaction, lock: transaction.LOCK.UPDATE });
+            if (!usuario) return { status: 404, body: { message: 'Usuário não encontrado.' } };
+            const compativel = (usuario.tipo === 'admin' && empresa_id === null && ict_id === null) ||
+                (usuario.tipo === 'empresa' && empresa_id !== null && ict_id === null) ||
+                (usuario.tipo === 'ict' && ict_id !== null && empresa_id === null);
+            if (!compativel) {
+                return { status: 400, body: { message: 'Informe somente o vínculo correspondente ao tipo de usuário.' } };
+            }
+            const empresaId = empresa_id === null ? null : Number(empresa_id);
+            const ictId = ict_id === null ? null : Number(ict_id);
+            const options = { transaction, lock: transaction.LOCK.SHARE };
+            if (empresaId !== null && !await Empresa.findByPk(empresaId, options)) {
+                return { status: 404, body: { message: 'Empresa não encontrada.' } };
+            }
+            if (ictId !== null && !await Ict.findByPk(ictId, options)) {
+                return { status: 404, body: { message: 'ICT não encontrada.' } };
+            }
+            if (await Responsavel.findByPk(usuarioId, { transaction })) {
+                return { status: 409, body: { message: 'Usuário já possui vínculo de responsável.' } };
+            }
+            // Nunca repassa campos extras do corpo, como tipo, timestamps ou permissões.
+            const responsavel = await Responsavel.create({ usuario_id: usuarioId, empresa_id: empresaId, ict_id: ictId, cargo }, { transaction });
+            return { status: 201, body: responsavel };
+        });
+        return res.status(resultado.status).json(resultado.body);
     } catch (error) {
+        if (error.name === 'SequelizeUniqueConstraintError') {
+            return res.status(409).json({ message: 'Usuário já possui vínculo de responsável.' });
+        }
+        if (error.name === 'SequelizeForeignKeyConstraintError') {
+            return res.status(404).json({ message: 'Usuário ou organização não encontrado.' });
+        }
+        if (error.name === 'SequelizeValidationError') {
+            return res.status(400).json({ message: 'Dados do responsável inválidos.' });
+        }
         console.error('Falha na operação.');
         res.status(500).json({ message: 'Erro ao criar responsável.' });
     }
